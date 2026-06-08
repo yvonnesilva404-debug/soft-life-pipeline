@@ -1,0 +1,45 @@
+# 📁 Put this in your PRIVATE pipeline repo at:
+#   .github/workflows/full-pipeline.yml
+#
+# Triggered from your phone app via GitHub API.
+# Does what trigger_and_pull.ps1 used to do — entirely in the cloud.
+
+name: Full Pipeline
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  pipeline:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Checkout public aggregator data
+        uses: actions/checkout@v4
+        with:
+          repository: yvonnesilva404-debug/laughing-octo-fiesta
+          path: aggregator
+          ref: main
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run scoring + upload pipeline
+        run: python pipeline.py \
+          --skip-scrape \
+          --skip-pull \
+          --skip-merge \
+          --workers 8 \
+          --upload-supabase \
+          --supabase-url "${{ secrets.SUPABASE_URL }}" \
+          --supabase-service-key "${{ secrets.SUPABASE_SERVICE_KEY }}"
+        env:
+          PYTHONUNBUFFERED: 1
