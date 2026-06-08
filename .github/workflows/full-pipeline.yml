@@ -13,12 +13,30 @@ permissions:
   contents: read
 
 jobs:
-  pipeline:
+  scrape-then-pipeline:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: Checkout public aggregator data
+      - name: Trigger public scraper and wait for it to finish
+        run: |
+          gh workflow run update-jobs.yml \
+            --repo yvonnesilva404-debug/laughing-octo-fiesta
+          sleep 6
+          RUN_ID=$(gh run list \
+            --repo yvonnesilva404-debug/laughing-octo-fiesta \
+            --workflow update-jobs.yml \
+            --limit 1 \
+            --json databaseId \
+            --jq '.[0].databaseId')
+          echo "Public scraper run ID: $RUN_ID"
+          gh run watch "$RUN_ID" \
+            --repo yvonnesilva404-debug/laughing-octo-fiesta \
+            --exit-status
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+
+      - name: Checkout public aggregator data (now fresh)
         uses: actions/checkout@v4
         with:
           repository: yvonnesilva404-debug/laughing-octo-fiesta
