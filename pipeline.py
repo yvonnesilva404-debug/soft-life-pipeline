@@ -62,7 +62,7 @@ DEFAULT_SCHEMA_SQL = SUPABASE_DIR / "schema.sql"
 DEFAULT_SEED_SQL = SUPABASE_DIR / "jobs_seed.sql"
 DEFAULT_SUPABASE_TABLE = "jobs"
 
-HEADERS = ["Tier", "Date", "Pay", "Title", "Exp Lvl", "Location", "Category", "Url", "New", "Reject Reason"]
+HEADERS = ["Tier", "Date", "Pay", "Title", "Exp Lvl", "Location", "Category", "Url", "New", "Reject Reason", "Part Time", "Night Time", "Non US"]
 DEFAULT_WORKERS = 8
 
 TIER_META = {
@@ -233,6 +233,53 @@ def _is_field_remote_listing(title: str, location: str) -> bool:
     return False
 
 
+_PART_TIME_RE = re.compile(
+    r"\b(part.time|parttime|reduced.hours|half.time|pt\b|p/t\b)\b",
+    re.IGNORECASE,
+)
+_NIGHT_TIME_RE = re.compile(
+    r"\b(night.shift|evening.shift|2nd.shift|second.shift|3rd.shift|third.shift|"
+    r"graveyard.shift|overnight|nightly|24/7|24.hour|rotating.shift)\b",
+    re.IGNORECASE,
+)
+
+_NON_US_HINTS = {
+    "canada", "portugal", "belgium", "japan", "china", "hong kong", "taiwan", "south korea",
+    "czech republic", "czechia", "denmark", "estonia", "norway", "finland", "switzerland",
+    "poland", "greece", "europe", "emea", "apac", "latam", "uk", "united kingdom",
+    "ireland", "germany", "france", "spain", "italy", "netherlands", "sweden",
+    "india", "australia", "new zealand", "singapore", "mexico", "brazil", "argentina",
+    "philippines", "vietnam", "remote uk", "remote-europe",
+}
+_NON_US_COUNTRY_CODES = {
+    "uk", "gb", "de", "fr", "es", "it", "nl", "se", "no", "dk", "fi", "pl",
+    "in", "au", "nz", "sg", "mx", "br", "ar", "jp", "cn", "kr", "ie", "ch",
+    "at", "be", "pt", "gr", "cz", "il", "ae", "za", "ng", "ke",
+}
+
+
+def _is_part_time_job(title: str, employment_type: str = "", description: str = "") -> bool:
+    combined = f"{title} {employment_type} {description}"
+    return bool(_PART_TIME_RE.search(combined))
+
+
+def _is_night_time_job(title: str, description: str = "") -> bool:
+    combined = f"{title} {description}"
+    return bool(_NIGHT_TIME_RE.search(combined))
+
+
+def _is_non_us_location(location: str) -> bool:
+    text = str(location or "").strip().lower()
+    if not text:
+        return False
+    if any(hint in text for hint in _NON_US_HINTS):
+        return True
+    tokens = re.sub(r"[.,]", " ", text).split()
+    if any(token in _NON_US_COUNTRY_CODES for token in tokens):
+        return True
+    return False
+
+
 # ---------------------------------------------------------------------------
 # Resolve helpers
 # ---------------------------------------------------------------------------
@@ -345,21 +392,26 @@ def _run_pipeline(
             )
         else:
             job_data = {
-                "title":       p["title"],
-                "company":     "",
-                "url":         p["url"],
-                "pay":         "",
-                "description": "",
-                "location":    p["location"],
+                "title":           p["title"],
+                "company":         "",
+                "url":             p["url"],
+                "pay":             "",
+                "description":     "",
+                "location":        p["location"],
+                "employment_type": "",
             }
         score_result = _score_job(job_data)
         tier = TIER_MAP.get(score_result.get("tier", ""), score_result.get("tier", "Merciless"))
         pay = job_data.get("pay", "") or ""
         description = job_data.get("description", "") or ""
+        employment_type = str(job_data.get("employment_type") or "")
         category = H.infer_job_category(
             p["title"], p["location"], p["exp_lvl"], pay, tier, description
         )
         reject_reason = H._build_reject_reason(score_result, pay)
+        part_time = "TRUE" if _is_part_time_job(p["title"], employment_type, description) else ""
+        night_time = "TRUE" if _is_night_time_job(p["title"], description) else ""
+        non_us = "TRUE" if _is_non_us_location(p["location"]) else ""
         return (idx, {
             "Tier":          tier,
             "Date":          p["date_val"],
@@ -371,6 +423,9 @@ def _run_pipeline(
             "Url":           p["url"],
             "New":           "New",
             "Reject Reason": reject_reason,
+            "Part Time":     part_time,
+            "Night Time":    night_time,
+            "Non US":        non_us,
         })
 
     unique_results: list = [None] * len(unique_jobs)
@@ -419,6 +474,9 @@ def _run_pipeline(
             )
             record["Url"] = p["url"]
             record["New"] = "New" if run_count == 1 else ""
+            record["Part Time"]  = record.get("Part Time", "") or ("TRUE" if _is_part_time_job(p["title"]) else "")
+            record["Night Time"] = record.get("Night Time", "") or ("TRUE" if _is_night_time_job(p["title"]) else "")
+            record["Non US"]     = record.get("Non US", "") or ("TRUE" if _is_non_us_location(p["location"]) else "")
             slot_results[idx] = record
         elif source_type == "duplicate":
             pass
@@ -454,8 +512,9 @@ def _run_pipeline(
         if r.get("Tier") == "Soft Life" and not _is_softlife_location_eligible(r.get("Location", "")):
             r["Tier"] = "Merciless"
             r["Reject Reason"] = "softlife_requires_true_remote"
-            rejected.append(r)
-            continue
+            if r.get("Non US") != "TRUE":
+                rejected.append(r)
+                continue
         if H._is_reject_pay(r.get("Pay", "")):
             rejected.append(r)
         else:
@@ -513,6 +572,7 @@ def export_source_csv(output_path: Path, freshness_days: int) -> Path:
         "--data-dir", str(AGGREGATOR_DATA_DIR),
         "--output",   str(output_path),
         "--freshness-days", str(freshness_days),
+        "--include-non-us",
     ], check=True, cwd=str(AGGREGATOR_SCRIPTS_DIR))
     return output_path
 
@@ -561,6 +621,9 @@ def build_job_records(csv_path: Path) -> list:
                     (row.get("Pay") or "").strip(),
                     tier,
                 )
+            part_time = (row.get("Part Time") or "").strip().upper() == "TRUE"
+            night_time = (row.get("Night Time") or "").strip().upper() == "TRUE"
+            non_us = (row.get("Non US") or "").strip().upper() == "TRUE"
             rows.append({
                 "date":        date_label,
                 "date_label":  date_label,
@@ -576,6 +639,9 @@ def build_job_records(csv_path: Path) -> list:
                 "url":         url,
                 "has_live_url": is_live_url(url),
                 "is_new":      is_new,
+                "part_time":   part_time,
+                "night_time":  night_time,
+                "non_us":      non_us,
             })
 
     def sort_key(r: dict) -> tuple:
@@ -619,7 +685,8 @@ def write_seed_sql(rows: list, output_path: Path, table_name: str) -> None:
         lines.append(
             f"insert into public.{table_name} "
             "(date_label, posted_date, tier, tier_rank, tier_icon, pay, title, "
-            "exp_level, location, category, url, has_live_url, is_new)"
+            "exp_level, location, category, url, has_live_url, is_new, "
+            "part_time, night_time, non_us)"
         )
         lines.append("values")
         value_lines = []
@@ -640,6 +707,9 @@ def write_seed_sql(rows: list, output_path: Path, table_name: str) -> None:
                     _sql_literal(row["url"]),
                     _sql_literal(row["has_live_url"]),
                     _sql_literal(row["is_new"]),
+                    _sql_literal(row["part_time"]),
+                    _sql_literal(row["night_time"]),
+                    _sql_literal(row["non_us"]),
                 ])
                 + ")"
             )
@@ -678,19 +748,22 @@ def upload_to_supabase(rows: list, url: str, service_key: str, table_name: str) 
     for batch in _chunked(rows, 250):
         payload = [
             {
-                "date_label":  row["date_label"],
-                "posted_date": row["posted_date"] or None,
-                "tier":        row["tier"],
-                "tier_rank":   row["tier_rank"],
-                "tier_icon":   row["tier_icon"],
-                "pay":         row["pay"],
-                "title":       row["title"],
-                "exp_level":   row["exp_level"],
-                "location":    row["location"],
-                "category":    row.get("category") or "Other",
-                "url":         row["url"],
+                "date_label":   row["date_label"],
+                "posted_date":  row["posted_date"] or None,
+                "tier":         row["tier"],
+                "tier_rank":    row["tier_rank"],
+                "tier_icon":    row["tier_icon"],
+                "pay":          row["pay"],
+                "title":        row["title"],
+                "exp_level":    row["exp_level"],
+                "location":     row["location"],
+                "category":     row.get("category") or "Other",
+                "url":          row["url"],
                 "has_live_url": row["has_live_url"],
-                "is_new":      row["is_new"],
+                "is_new":       row["is_new"],
+                "part_time":    row["part_time"],
+                "night_time":   row["night_time"],
+                "non_us":       row["non_us"],
             }
             for row in batch
         ]
