@@ -1,13 +1,19 @@
 # 📁 Put this in your PRIVATE pipeline repo at:
 #   .github/workflows/full-pipeline.yml
-#
-# Triggered from your phone app via GitHub API.
-# Does what trigger_and_pull.ps1 used to do — entirely in the cloud.
 
 name: Full Pipeline
 
 on:
   workflow_dispatch:
+    inputs:
+      mode:
+        description: "Run mode"
+        required: true
+        default: full
+        type: choice
+        options:
+          - full
+          - quick
 
 permissions:
   contents: read
@@ -18,7 +24,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Trigger public scraper and wait for it to finish
+      - name: Trigger public scraper
+        if: ${{ github.event.inputs.mode == 'full' }}
         run: |
           gh workflow run update-jobs.yml \
             --repo yvonnesilva404-debug/laughing-octo-fiesta
@@ -29,14 +36,14 @@ jobs:
             --limit 1 \
             --json databaseId \
             --jq '.[0].databaseId')
-          echo "Public scraper run ID: $RUN_ID"
+          echo "Scraper run ID: $RUN_ID"
           gh run watch "$RUN_ID" \
             --repo yvonnesilva404-debug/laughing-octo-fiesta \
             --exit-status
         env:
           GH_TOKEN: ${{ secrets.GH_PAT }}
 
-      - name: Checkout public aggregator data (now fresh)
+      - name: Checkout public aggregator data
         uses: actions/checkout@v4
         with:
           repository: yvonnesilva404-debug/laughing-octo-fiesta
@@ -51,13 +58,14 @@ jobs:
         run: pip install -r requirements.txt
 
       - name: Run scoring + upload pipeline
-        run: python pipeline.py \
-          --skip-scrape \
-          --skip-pull \
-          --skip-merge \
-          --workers 8 \
-          --upload-supabase \
-          --supabase-url "${{ secrets.SUPABASE_URL }}" \
-          --supabase-service-key "${{ secrets.SUPABASE_SERVICE_KEY }}"
+        run: |
+          python pipeline.py \
+            --skip-scrape \
+            --skip-pull \
+            --skip-merge \
+            --workers 8 \
+            --upload-supabase \
+            --supabase-url "${{ secrets.SUPABASE_URL }}" \
+            --supabase-service-key "${{ secrets.SUPABASE_SERVICE_KEY }}"
         env:
           PYTHONUNBUFFERED: 1
