@@ -60,6 +60,7 @@ jobs:
       - name: Run scoring + upload pipeline
         run: |
           python pipeline.py \
+            --aggregator-dir "${{ github.workspace }}/aggregator" \
             --skip-scrape \
             --skip-pull \
             --skip-merge \
