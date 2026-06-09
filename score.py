@@ -177,7 +177,7 @@ def harvest_gate(job: dict) -> Optional[str]:
         return "low_pay"
     if int(os.getenv("FILTER_MISSING_PAY", "0")) and not _has_pay(pay):
         return "missing_pay"
-    if int(os.getenv("FILTER_FULLTIME_ONLY", "1")):
+    if int(os.getenv("FILTER_FULLTIME_ONLY", "0")):
         employment_type = str(job.get("employment_type", "") or "")
         if _is_non_fulltime(employment_type):
             return "not_fulltime"
