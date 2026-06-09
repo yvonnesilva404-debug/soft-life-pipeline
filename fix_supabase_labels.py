@@ -13,13 +13,15 @@ print(f"Read {len(rows)} jobs from Supabase export")
 # Apply detection
 updates = []
 for row in rows:
-    jid = row.get('id', '').strip()
+    url = (row.get('url') or '').strip()
+    if not url:
+        continue
     title = (row.get('title') or '').strip()
     location = (row.get('location') or '').strip()
     pt = pipeline._is_part_time_job(title)
     nt = pipeline._is_night_time_job(title)
     nu = pipeline._is_non_us_location(location)
-    updates.append((jid, pt, nt, nu))
+    updates.append((url.replace("'", "''"), pt, nt, nu))
 
 # Count
 pt_count = sum(1 for _, pt, _, _ in updates if pt)
@@ -32,8 +34,8 @@ sql_path = r'C:\Users\User\Documents\work\soft-life-pipeline\fix_labels.sql'
 with open(sql_path, 'w') as f:
     f.write('-- Fix detection labels on all jobs\n')
     f.write('BEGIN;\n')
-    for jid, pt, nt, nu in updates:
-        f.write(f"UPDATE jobs SET part_time={str(pt).lower()}, night_time={str(nt).lower()}, non_us={str(nu).lower()} WHERE id='{jid}';\n")
+    for url, pt, nt, nu in updates:
+        f.write(f"UPDATE jobs SET part_time={str(pt).lower()}, night_time={str(nt).lower()}, non_us={str(nu).lower()} WHERE url='{url}';\n")
     f.write('COMMIT;\n')
 
 print(f"Wrote {len(updates)} UPDATE statements to {sql_path}")
