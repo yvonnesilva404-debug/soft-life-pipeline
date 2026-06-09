@@ -238,8 +238,8 @@ _PART_TIME_RE = re.compile(
     re.IGNORECASE,
 )
 _NIGHT_TIME_RE = re.compile(
-    r"\b(night.shift|evening.shift|2nd.shift|second.shift|3rd.shift|third.shift|"
-    r"graveyard.shift|overnight|nightly|24/7|24.hour|rotating.shift)\b",
+    r"\b(night\b|night.shift|evening.shift|2nd.shift|second.shift|3rd.shift|third.shift|"
+    r"graveyard.shift|overnight|nightly)\b",
     re.IGNORECASE,
 )
 
@@ -251,6 +251,10 @@ _NON_US_HINTS = {
     "india", "australia", "new zealand", "singapore", "mexico", "brazil", "argentina",
     "philippines", "vietnam", "remote uk", "remote-europe",
 }
+_NON_US_HINTS_RE = re.compile(
+    r"\b(?:" + "|".join(re.escape(h) for h in sorted(_NON_US_HINTS, key=len, reverse=True)) + r")\b",
+    re.IGNORECASE,
+)
 _NON_US_COUNTRY_CODES = {
     "uk", "gb", "de", "fr", "es", "it", "nl", "se", "no", "dk", "fi", "pl",
     "in", "au", "nz", "sg", "mx", "br", "ar", "jp", "cn", "kr", "ie", "ch",
@@ -268,13 +272,26 @@ def _is_night_time_job(title: str, description: str = "") -> bool:
     return bool(_NIGHT_TIME_RE.search(combined))
 
 
+_US_INDICATORS = {
+    "usa", "united states", "u.s.", "us",
+    "al", "ak", "az", "ar", "ca", "co", "ct", "de", "fl", "ga",
+    "hi", "id", "il", "in", "ia", "ks", "ky", "la", "me", "md",
+    "ma", "mi", "mn", "ms", "mo", "mt", "ne", "nv", "nh", "nj",
+    "nm", "ny", "nc", "nd", "oh", "ok", "or", "pa", "ri", "sc",
+    "sd", "tn", "tx", "ut", "vt", "va", "wa", "wv", "wi", "wy",
+    "dc",
+}
+
+
 def _is_non_us_location(location: str) -> bool:
     text = str(location or "").strip().lower()
     if not text:
         return False
-    if any(hint in text for hint in _NON_US_HINTS):
+    tokens = re.sub(r"[.,\-;()]", " ", text).split()
+    if any(t in _US_INDICATORS for t in tokens):
+        return False
+    if _NON_US_HINTS_RE.search(text):
         return True
-    tokens = re.sub(r"[.,]", " ", text).split()
     if any(token in _NON_US_COUNTRY_CODES for token in tokens):
         return True
     return False
