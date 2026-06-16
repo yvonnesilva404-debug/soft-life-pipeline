@@ -244,21 +244,52 @@ _NIGHT_TIME_RE = re.compile(
 )
 
 _NON_US_HINTS = {
-    "canada", "portugal", "belgium", "japan", "china", "hong kong", "taiwan", "south korea",
+    "canada",
+    "portugal", "belgium", "japan", "china", "hong kong", "taiwan", "south korea",
     "czech republic", "czechia", "denmark", "estonia", "norway", "finland", "switzerland",
     "poland", "greece", "europe", "emea", "apac", "latam", "uk", "united kingdom",
     "ireland", "germany", "france", "spain", "italy", "netherlands", "sweden",
     "india", "australia", "new zealand", "singapore", "mexico", "brazil", "argentina",
-    "philippines", "vietnam", "remote uk", "remote-europe",
+    "philippines", "vietnam",
+    # countries / regions commonly missing
+    "south america", "central america", "latin america",
+    "england", "scotland", "wales", "northern ireland",
+    "serbia", "croatia", "slovakia", "slovenia", "bosnia", "montenegro", "albania",
+    "bulgaria", "romania", "hungary", "moldova",
+    "turkey", "ukraine", "belarus", "iceland", "luxembourg", "malta", "cyprus",
+    "russia",
+    "colombia", "peru", "chile", "uruguay", "paraguay", "bolivia", "ecuador", "venezuela",
+    "costa rica", "panama", "guatemala", "honduras", "el salvador", "nicaragua", "cuba",
+    "dominican republic",
+    "indonesia", "thailand", "malaysia", "myanmar", "cambodia", "laos",
+    "bangladesh", "pakistan", "sri lanka", "nepal", "mongolia",
+    "saudi arabia", "uae", "dubai", "qatar", "kuwait", "oman", "bahrain",
+    "jordan", "lebanon", "israel",
+    "south africa", "nigeria", "kenya", "egypt", "morocco", "tunisia", "algeria",
+    "ethiopia", "ghana", "senegal", "tanzania", "uganda", "angola", "mozambique",
+    "cameroon", "madagascar",
+    # common remote-X patterns
+    "remote uk", "remote-europe", "remote canada", "remote germany", "remote france",
+    "remote india", "remote australia", "remote ireland", "remote netherlands",
+    "remote sweden", "remote spain", "remote italy", "remote portugal", "remote belgium",
+    "remote switzerland", "remote austria", "remote poland", "remote brazil", "remote mexico",
+    "remote singapore", "remote japan",
 }
 _NON_US_HINTS_RE = re.compile(
     r"\b(?:" + "|".join(re.escape(h) for h in sorted(_NON_US_HINTS, key=len, reverse=True)) + r")\b",
     re.IGNORECASE,
 )
 _NON_US_COUNTRY_CODES = {
-    "uk", "gb", "de", "fr", "es", "it", "nl", "se", "no", "dk", "fi", "pl",
-    "in", "au", "nz", "sg", "mx", "br", "ar", "jp", "cn", "kr", "ie", "ch",
-    "at", "be", "pt", "gr", "cz", "il", "ae", "za", "ng", "ke",
+    # non-conflicting ISO country codes (not in US state abbreviations)
+    "uk", "gb", "fr", "es", "it", "nl", "se", "no", "dk", "fi", "pl",
+    "au", "nz", "sg", "mx", "br", "jp", "cn", "kr", "ie", "ch",
+    "at", "be", "pt", "gr", "cz", "ae", "za", "ng", "ke",
+    "can",  # Canada (safe — not a US state code)
+    "ru", "th", "vn", "my", "ph", "hk", "tw",
+    "ee", "lt", "lv", "sk", "hr", "hu", "ro", "bg", "rs", "ua", "tr",
+    "cl", "pe", "ec", "cr", "do",
+    "eg", "ma", "tn", "dz", "ke", "ng", "za",
+    "sa", "qa", "kw", "om", "bh", "jo", "lb", "ps",
 }
 
 
