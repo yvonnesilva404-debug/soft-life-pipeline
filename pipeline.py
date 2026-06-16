@@ -234,7 +234,7 @@ def _is_field_remote_listing(title: str, location: str) -> bool:
 
 
 _PART_TIME_RE = re.compile(
-    r"\b(part.time|parttime|reduced.hours|half.time|pt\b|p/t\b)\b",
+    r"\b(part.time|parttime|reduced.hours|half.time|p/t\b)\b",
     re.IGNORECASE,
 )
 _NIGHT_TIME_RE = re.compile(
