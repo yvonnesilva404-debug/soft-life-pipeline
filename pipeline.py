@@ -294,6 +294,8 @@ _NON_US_COUNTRY_CODES = {
 
 
 def _is_part_time_job(title: str, employment_type: str = "", description: str = "") -> bool:
+    if re.search(r"\bfull[\s-]?time\b", f"{title} {employment_type}", re.IGNORECASE):
+        return False
     combined = f"{title} {employment_type} {description}"
     return bool(_PART_TIME_RE.search(combined))
 
