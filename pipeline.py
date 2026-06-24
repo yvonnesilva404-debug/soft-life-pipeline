@@ -239,7 +239,7 @@ _PART_TIME_RE = re.compile(
 )
 _NIGHT_TIME_RE = re.compile(
     r"\b(night\b|night.shift|evening.shift|2nd.shift|second.shift|3rd.shift|third.shift|"
-    r"graveyard.shift|overnight|nightly)\b",
+    r"graveyard.shift|overnight(?!\s+(?:travel|trip|trips|stay|stays|visit|visits|accommodation|relocation))|nightly)\b",
     re.IGNORECASE,
 )
 
