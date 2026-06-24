@@ -188,7 +188,8 @@ FIELD_REMOTE_TITLE_RE = re.compile(
     r"mechanic|technician|mobile\s+vehicle\s+condition\s+inspector|vehicle\s+condition\s+inspector|"
     r"railcar\s+repair|field\s+engineer|field\s+service|substation|equipment\s+engineer|"
     r"field\s+execution|travel\s+rn|travel\s+nurse|route\s+sales|territory\s+sales|maintenance|installer|"
-    r"repair\s+technician|service\s+technician"
+    r"repair\s+technician|service\s+technician|"
+    r"truck\s*driver|cdl|delivery\s*driver|route\s*driver|driver\b"
     r")\b",
     re.IGNORECASE,
 )
