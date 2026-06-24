@@ -403,7 +403,7 @@ def _run_pipeline(
             "location": (row.get("Location")         or "").strip(),
             "exp_lvl":  (row.get("Experience Level") or "").strip(),
             "date_val": (row.get("Date")             or "").strip(),
-            "url":      (row.get("URL")              or "").strip(),
+            "url":      re.sub(r"^http://", "https://", (row.get("URL") or "").strip()),
         })
 
     unique_jobs: list = []

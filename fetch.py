@@ -1962,12 +1962,12 @@ def load_lifecycle_state(path: Path) -> Tuple[dict, set]:
     if isinstance(raw_runs, dict):
         for url, count in raw_runs.items():
             if isinstance(url, str) and isinstance(count, int) and count >= 0:
-                runs[url] = count
+                runs[re.sub(r"^http://", "https://", url)] = count
     dropped: set = set()
     if isinstance(raw_dropped, list):
         for url in raw_dropped:
             if isinstance(url, str) and url:
-                dropped.add(url)
+                dropped.add(re.sub(r"^http://", "https://", url))
     return runs, dropped
 
 
