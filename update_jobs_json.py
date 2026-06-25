@@ -7,6 +7,16 @@ import pipeline
 CSV = r'C:\Users\User\Downloads\softlifecreed-jobs-2026-06-09.csv'
 JSON_OUT = r'C:\Users\User\Documents\work\Soft_Creed\jobs.json'
 
+# Load pipeline output labels (New, Part Time, Night Time, Non US) keyed by URL
+PIPELINE_OUT = Path(r'C:\Users\User\Documents\work\Soft Creed data\softlife.csv')
+pipeline_labels: dict = {}
+if PIPELINE_OUT.exists():
+    with open(PIPELINE_OUT, encoding='utf-8') as f:
+        for r in csv.DictReader(f):
+            url = (r.get('Url') or '').strip()
+            if url:
+                pipeline_labels[url] = r
+
 with open(CSV, encoding='utf-8') as f:
     rows = list(csv.DictReader(f))
 
@@ -28,13 +38,14 @@ for row in rows:
     exp_level = (row.get('exp_level') or '').strip()
     category = (row.get('category') or '').strip()
     date_label = (row.get('date_label') or '').strip()
-    is_new = (row.get('is_new') or '').strip().lower() == 'true'
     has_live = (row.get('has_live_url') or '').strip().lower() == 'true'
 
-    # Detection
-    pt = pipeline._is_part_time_job(title)
-    nt = pipeline._is_night_time_job(title)
-    nu = pipeline._is_non_us_location(location)
+    # Use pipeline output labels if available (softlife.csv has correct detection)
+    pl = pipeline_labels.get(url, {})
+    is_new = pl.get('New', '').strip() == 'New'
+    pt = pl.get('Part Time', '').strip() == 'TRUE'
+    nt = pl.get('Night Time', '').strip() == 'TRUE'
+    nu = pl.get('Non US', '').strip() == 'TRUE'
 
     output.append({
         "date": date_label,
