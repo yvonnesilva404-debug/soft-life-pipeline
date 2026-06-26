@@ -1976,6 +1976,26 @@ def save_lifecycle_state(path: Path, runs: dict, dropped: set) -> None:
     path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
 
 
+def load_urls_from_supabase(supabase_url: str, service_key: str) -> set:
+    """Query Supabase jobs table for previously seen URLs."""
+    try:
+        headers = {
+            "apikey": service_key,
+            "Authorization": f"Bearer {service_key}",
+            "Content-Type": "application/json",
+        }
+        url = f"{supabase_url.rstrip('/')}/rest/v1/jobs?select=url"
+        r = requests.get(url, headers=headers, timeout=30)
+        r.raise_for_status()
+        rows: list = r.json()
+        seen = {row["url"] for row in rows if row.get("url")}
+        print(f"Lifecycle: loaded {len(seen)} existing URLs from Supabase")
+        return seen
+    except Exception as e:
+        print(f"Lifecycle: failed to load URLs from Supabase ({e}), falling back to local state only")
+        return set()
+
+
 # ============================================================================
 # SECTION 14 — Title dedup helpers (from pull_helpers.py)
 # ============================================================================

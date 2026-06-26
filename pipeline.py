@@ -15,6 +15,7 @@ Exports for smoketest.py:
 import argparse
 import csv
 import json
+import os
 import re
 import shutil
 import subprocess
@@ -377,6 +378,8 @@ def _run_pipeline(
     csv_reject: Path,
     workers: int = DEFAULT_WORKERS,
     use_cache: bool = True,
+    supabase_url: Optional[str] = None,
+    supabase_service_key: Optional[str] = None,
 ) -> dict:
     """
     Core scoring pass:
@@ -390,6 +393,11 @@ def _run_pipeline(
     previous_rows = H.load_previous_rows(csv_out, csv_reject) if use_cache else {}
     previous_reject_urls = set(H.load_previous_rows(csv_reject).keys()) if use_cache else set()
     lifecycle_runs, lifecycle_dropped = H.load_lifecycle_state(DEFAULT_LIFECYCLE_STATE)
+    if supabase_url and supabase_service_key:
+        seen_urls = H.load_urls_from_supabase(supabase_url, supabase_service_key)
+        for url in seen_urls:
+            if url not in lifecycle_runs and url not in lifecycle_dropped:
+                lifecycle_runs[url] = 1
 
     with open(csv_in, newline="", encoding="utf-8") as f:
         rows_in = list(csv.DictReader(f))
@@ -931,12 +939,16 @@ def main(argv: Optional[list] = None) -> None:
     seed_sql        = _resolve_path(args.seed_sql, SUPABASE_DIR)
 
     if not args.skip_score:
+        supabase_url = args.supabase_url or os.environ.get("SUPABASE_URL", "")
+        supabase_key = args.supabase_service_key or os.environ.get("SUPABASE_SERVICE_KEY", "")
         summary = _run_pipeline(
             csv_in=csv_in,
             csv_out=softlife_output,
             csv_reject=reject_output,
             workers=args.workers,
             use_cache=not args.no_cache,
+            supabase_url=supabase_url or None,
+            supabase_service_key=supabase_key or None,
         )
         print(f"\nStep 3 complete: {summary['accepted_count']} accepted / {summary['rejected_count']} rejected.")
     else:
