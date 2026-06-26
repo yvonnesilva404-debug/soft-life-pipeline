@@ -1,24 +1,22 @@
-"""Read Supabase export CSV, apply detection, write jobs.json for frontend."""
-import csv, json, sys
+"""Fetch jobs from Supabase REST API and write jobs.json for frontend."""
+import json, os
 from pathlib import Path
-sys.path.insert(0, '.')
-import pipeline
+import requests
 
-CSV = r'C:\Users\User\Downloads\softlifecreed-jobs-2026-06-09.csv'
+SUPABASE_URL = os.environ.get("SUPABASE_URL", "")
+SERVICE_KEY = os.environ.get("SUPABASE_SERVICE_KEY", "")
 JSON_OUT = r'C:\Users\User\Documents\work\Soft_Creed\jobs.json'
 
-# Load pipeline output labels (New, Part Time, Night Time, Non US) keyed by URL
-PIPELINE_OUT = Path(r'C:\Users\User\Documents\work\Soft Creed data\softlife.csv')
-pipeline_labels: dict = {}
-if PIPELINE_OUT.exists():
-    with open(PIPELINE_OUT, encoding='utf-8') as f:
-        for r in csv.DictReader(f):
-            url = (r.get('Url') or '').strip()
-            if url:
-                pipeline_labels[url] = r
+headers = {
+    "apikey": SERVICE_KEY,
+    "Authorization": f"Bearer {SERVICE_KEY}",
+    "Content-Type": "application/json",
+}
 
-with open(CSV, encoding='utf-8') as f:
-    rows = list(csv.DictReader(f))
+url = f"{SUPABASE_URL.rstrip('/')}/rest/v1/jobs?select=id,date_label,tier,tier_rank,tier_icon,pay,title,exp_level,location,url,has_live_url,is_new,category,part_time,night_time,non_us&order=id.asc"
+r = requests.get(url, headers=headers)
+r.raise_for_status()
+rows: list = r.json()
 
 seen_urls = set()
 output = []
@@ -29,41 +27,23 @@ for row in rows:
     if url:
         seen_urls.add(url)
 
-    title = (row.get('title') or '').strip()
-    location = (row.get('location') or '').strip()
-    tier = (row.get('tier') or '').strip()
-    tier_rank = int(row.get('tier_rank') or 4)
-    tier_icon = row.get('tier_icon') or ''
-    pay = (row.get('pay') or '').strip() or 'TBD'
-    exp_level = (row.get('exp_level') or '').strip()
-    category = (row.get('category') or '').strip()
-    date_label = (row.get('date_label') or '').strip()
-    has_live = (row.get('has_live_url') or '').strip().lower() == 'true'
-
-    # Use pipeline output labels if available (softlife.csv has correct detection)
-    pl = pipeline_labels.get(url, {})
-    is_new = pl.get('New', '').strip() == 'New'
-    pt = pl.get('Part Time', '').strip() == 'TRUE'
-    nt = pl.get('Night Time', '').strip() == 'TRUE'
-    nu = pl.get('Non US', '').strip() == 'TRUE'
-
     output.append({
-        "date": date_label,
-        "date_label": date_label,
-        "tier": tier,
-        "tier_rank": tier_rank,
-        "tier_icon": tier_icon,
-        "pay": pay,
-        "title": title,
-        "exp_level": exp_level,
-        "location": location,
-        "category": category,
+        "date": row.get('date_label', ''),
+        "date_label": row.get('date_label', ''),
+        "tier": row.get('tier', ''),
+        "tier_rank": int(row.get('tier_rank', 4) or 4),
+        "tier_icon": row.get('tier_icon', ''),
+        "pay": (row.get('pay') or '').strip() or 'TBD',
+        "title": row.get('title', ''),
+        "exp_level": row.get('exp_level', ''),
+        "location": row.get('location', ''),
+        "category": row.get('category', ''),
         "url": url,
-        "has_live_url": has_live,
-        "is_new": is_new,
-        "part_time": pt,
-        "night_time": nt,
-        "non_us": nu,
+        "has_live_url": str(row.get('has_live_url', '')).lower() == 'true',
+        "is_new": bool(row.get('is_new', False)),
+        "part_time": bool(row.get('part_time', False)),
+        "night_time": bool(row.get('night_time', False)),
+        "non_us": bool(row.get('non_us', False)),
     })
 
 # Sort by date desc, then tier rank
