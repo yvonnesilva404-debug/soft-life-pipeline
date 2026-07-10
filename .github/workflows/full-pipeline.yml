@@ -4,6 +4,8 @@
 name: Full Pipeline
 
 on:
+  schedule:
+    - cron: "0 0,4,8,12,16,20 * * *"
   workflow_dispatch:
     inputs:
       mode:
@@ -25,7 +27,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Trigger public scraper
-        if: ${{ github.event.inputs.mode == 'full' }}
+        if: ${{ github.event_name == 'schedule' || github.event.inputs.mode == 'full' }}
         run: |
           gh workflow run update-jobs.yml \
             --repo yvonnesilva404-debug/laughing-octo-fiesta
