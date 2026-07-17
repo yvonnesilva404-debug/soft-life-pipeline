@@ -210,11 +210,25 @@ FIELD_REMOTE_MARKET_SALES_RE = re.compile(
     re.IGNORECASE,
 )
 
+FIELD_REMOTE_DESC_RE = re.compile(
+    r"\b(?:"
+    r"rotational\s*(?:site\s*)?schedule\b|"
+    r"14[/\-]14\b|"
+    r"14\s*/\s*14\b|"
+    r"\bchantier\b|"
+    r"quarts?\s+(?:de\s+)?(?:jour|nuit)\b|"
+    r"longs?\s+quarts?\b|"
+    r"toolbox\b.{0,30}discuss"
+    r")\b",
+    re.IGNORECASE,
+)
 
-def _is_field_remote_listing(title: str, location: str) -> bool:
+
+def _is_field_remote_listing(title: str, location: str, description: str = "") -> bool:
     """Reject jobs where "remote" means road/field/site territory work."""
     title_text = str(title or "").strip()
     location_text = str(location or "").strip()
+    desc_text = str(description or "").strip()
     combined = f"{title_text} {location_text}"
 
     if FIELD_REMOTE_LOCATION_RE.search(location_text):
@@ -230,6 +244,8 @@ def _is_field_remote_listing(title: str, location: str) -> bool:
     if re.search(r"\b(?:hybrid|on[-\s]?site|onsite|in[-\s]?office)\b", combined, re.IGNORECASE):
         return True
     if FIELD_REMOTE_MARKET_SALES_RE.search(title_text):
+        return True
+    if desc_text and re.search(r"\bremote\b", location_text, re.IGNORECASE) and FIELD_REMOTE_DESC_RE.search(desc_text):
         return True
 
     return False
@@ -412,7 +428,7 @@ def _run_pipeline(
             "location": (row.get("Location")         or "").strip(),
             "exp_lvl":  (row.get("Experience Level") or "").strip(),
             "date_val": (row.get("Date")             or "").strip(),
-            "url":      re.sub(r"^http://", "https://", (row.get("URL") or "").strip()),
+            "url":      re.sub(r"^http://(.*)", r"https://\1", (row.get("URL") or "").strip()),
         })
 
     unique_jobs: list = []
