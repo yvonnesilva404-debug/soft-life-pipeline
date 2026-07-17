@@ -177,7 +177,7 @@ def harvest_gate(job: dict) -> Optional[str]:
         return "low_pay"
     if int(os.getenv("FILTER_MISSING_PAY", "0")) and not _has_pay(pay):
         return "missing_pay"
-    if int(os.getenv("FILTER_FULLTIME_ONLY", "0")):
+    if int(os.getenv("FILTER_FULLTIME_ONLY", "1")):
         employment_type = str(job.get("employment_type", "") or "")
         if _is_non_fulltime(employment_type):
             return "not_fulltime"
@@ -348,6 +348,15 @@ HARD_KILLS: List[PatternRule] = [
         r"\brecruiting\s+on\s+behalf\s+of\s+(our\s+)?(client|company)\b",
         r"\bour\s+client\s+is\s+(looking|seeking|hiring)\b",
         r"\bplaced\s+(at|with)\s+(our\s+)?client\b",
+    ], False),
+    ("construction_rotation_field", [
+        r"\brotational\s*(?:site\s*)?schedule\b",
+        r"\b14[/\-]14\b",
+        r"\b14\s*/\s*14\b",
+        r"\bchantier\b",
+        r"\bquarts?\s+(?:de\s+)?(?:jour|nuit)\b",
+        r"\blongs?\s+quarts?\b",
+        r"\btoolbox\b.{0,30}\bdiscuss",
     ], False),
 ]
 
